@@ -1,0 +1,109 @@
+##########################
+# CORE / API LAYER
+##########################
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-multipart==0.0.9
+orjson==3.10.7
+httpx==0.27.2
+requests==2.32.3
+aiohttp==3.10.11
+
+##########################
+# ASYNC TASKS / ORCHESTRATION
+##########################
+celery==5.4.0
+redis==5.1.1
+tenacity==9.0.0
+aiofiles==24.1.0
+
+##########################
+# DATABASES / STORAGE
+##########################
+pymongo==4.8.0
+neo4j==5.25.0
+qdrant-client==1.12.1
+minio==7.2.9
+sqlalchemy==2.0.36
+alembic==1.13.3
+redis-om==0.3.2
+
+##########################
+# NLP / AI / RETRIEVAL
+##########################
+# torch==2.4.1  # Optional - only if using local models
+# transformers==4.45.2  # Optional
+# sentence-transformers==3.1.1  # Optional
+# accelerate==1.0.1  # Optional
+# faiss-cpu==1.8.0.post1  # Optional
+# scispacy==0.5.4  # Optional - incompatible with Python 3.12
+# spacy==3.7.5  # Optional
+# spacy-transformers==1.4.3  # Optional - incompatible with Python 3.12
+# umap-learn==0.5.6  # Optional
+# hdbscan==0.8.38  # Optional
+rank-bm25==0.2.2
+nltk==3.9.1
+textdistance==4.6.2
+beautifulsoup4==4.12.3
+lxml==5.3.0
+
+##########################
+# ENTITY LINKING / ONTOLOGIES
+##########################
+# biopython==1.84  # Optional
+# bioservices==1.13.4  # Optional
+# chembl_webresource_client==0.10.9  # Optional
+# pubchempy==1.0.4  # Optional
+pandas==2.2.3
+numpy==1.26.4
+# scikit-learn==1.5.2  # Optional
+networkx==3.4.2
+
+##########################
+# SIMULATION / IN-SILICO ANALYSIS
+##########################
+# rdkit-pypi==2022.9.5  # Optional - for chemistry
+# openpyxl==3.1.5  # Optional
+# joblib==1.4.2  # Optional
+# matplotlib==3.9.2  # Optional
+# seaborn==0.13.2  # Optional
+# sympy==1.13.2  # Optional
+
+##########################
+# SECURITY / COMPLIANCE
+##########################
+python-jose==3.3.0
+passlib[bcrypt]==1.7.4
+cryptography==43.0.3
+authlib==1.3.2
+pyjwt==2.9.0
+bleach==6.2.0
+
+##########################
+# OBSERVABILITY / LOGGING
+##########################
+loguru==0.7.2
+prometheus-client==0.21.0
+opentelemetry-api==1.28.1
+opentelemetry-sdk==1.28.1
+opentelemetry-exporter-otlp==1.28.1
+sentry-sdk==2.16.0
+
+##########################
+# TESTING / DEV / UTILITIES
+##########################
+pytest==8.3.3
+pytest-asyncio==0.24.0
+pytest-cov==5.0.0
+black==24.8.0
+flake8==7.1.1
+isort==5.13.2
+jupyter==1.1.1
+rich==13.8.1
+typer==0.12.5
+tqdm==4.66.5
+click==8.1.7
+dotenv-linter==0.5.0
+python-dotenv==1.0.1

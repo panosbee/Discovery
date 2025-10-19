@@ -1,0 +1,29 @@
+amr_discovery/
+│
+├── api/
+│   ├── main.py              # FastAPI app
+│   ├── routes/
+│   └── schemas/
+│
+├── agents/
+│   ├── visioner_agent.py
+│   ├── evidence_miner.py
+│   ├── cross_domain.py
+│   ├── synthesizer.py
+│   ├── simulation_agent.py
+│   └── ethics_validator.py
+│
+├── data/
+│   ├── connectors/
+│   ├── graph/
+│   ├── vector/
+│   └── mongo/
+│
+├── services/
+│   ├── orchestrator.py
+│   ├── event_bus.py
+│   ├── security.py
+│   └── logging.py
+│
+├── tests/
+└── requirements.txt

@@ -1,0 +1,393 @@
+κάνουμε «καθαρό» standalone module, με σαφή API προς το MedResearch AI.
+
+Medical Discovery & Hypothesis Engine (standalone module)
+
+[ΑΛΛΑΓΗ: Επέκταση από AMR-specific σε γενικό Medical Research Domain]
+
+Στόχος: Ένα αυτόνομο microservice που:
+
+διαβάζει από επιστημονικές/γνωσιακές βάσεις σε όλο το φάσμα της ιατρικής έρευνας,
+
+συνθέτει out-of-the-box υποθέσεις (cross-domain) για οποιοδήποτε medical domain (καρδιολογία, ογκολογία, νευρολογία, διαβητολογία, μολυσματικά νοσήματα, γενετική, κλπ),
+
+τρέχει in-silico προσομοιώσεις/εκτιμήσεις σκοπιμότητας,
+
+εφαρμόζει ethical/safety validation,
+
+εκθέτει καθαρό REST/GraphQL API στο MedResearch.
+
+1) Αρχιτεκτονική (high-level)
+
+Gateway/API: REST + GraphQL (OpenAPI/SDL). Auth με OIDC/JWT.
+
+Orchestrator (Coordinator Service): διαχειρίζεται ροές μεταξύ agents, retries, timeouts, provenance.
+
+Agents (stateless microservices):
+
+Visioner Agent (ιδέα/υπόθεση)
+
+Concept Learner (term decomposition & deep definitions)
+
+Evidence Miners (connectors σε βάσεις)
+
+Cross-Domain Mapper (μεταφορά ιδεών από άλλα πεδία)
+
+Synthesizer (σύνθεση/τεκμηρίωση υπόθεσης)
+
+Simulation Agent (in-silico scoring)
+
+Ethical/Clinical Validator (safety, feasibility, ethics-by-design)
+
+Data Layer:
+
+Doc store: MongoDB (raw docs, snapshots, artifacts)
+
+Vector DB: (π.χ. Qdrant/Weaviate) για semantic retrieval
+
+Graph DB: Neo4j/TypeDB (οντότητες/σχέσεις: παθογόνα-μοριακοί στόχοι-παρεμβάσεις-outcomes)
+
+Object store: MinIO/S3 (reports, JSONL, evidence packs)
+
+Cache: Redis (rate limits, query cache, task states)
+
+Messaging/Events: NATS/Redis Streams/RabbitMQ (task queue, pub-sub)
+
+Observability: OpenTelemetry, Prometheus/Grafana, structured logs με trace IDs.
+
+Policy/Safety: rule engine (OPA) για ethics/constraints, PII scrubber.
+
+2) Connectors (evidence miners)
+
+Publications: PubMed, Crossref, arXiv
+
+Κλινικές δοκιμές: ClinicalTrials.gov, EU Clinical Trials
+
+Χημεία: PubChem (compounds, bioassays), ChEMBL (bioactivity), DrugBank (όπου επιτρέπει άδεια)
+
+Γονιδιωματικά/πρωτεωμικά: UniProt, Ensembl, NCBI Gene, KEGG pathways
+
+Γνώσεις/οντολογίες: MeSH, UMLS (CUIs), GO, DOID
+
+Πατέντες: EPO/USPTO (βασικές μεταδεδομένες)
+
+Κώδικας/datasets: Zenodo, Figshare, GitHub (tags: AMR, biofilm, lysins)
+
+Κλινικές οδηγίες/whitepapers: WHO/CDC (με νομίμως προσβάσιμα endpoints)
+
+Κάθε connector → normalizer (ενιαίο schema), entity-linking (MeSH/UMLS), citation extraction, embeddings.
+
+3) Multi-Agent ρόλοι & λογική
+3.1 Visioner Agent (ideation)
+
+Input: high-level στόχος σε οποιοδήποτε medical domain (π.χ. "βελτίωση ινσουλινικής ευαισθησίας στον διαβήτη τύπου 2", "καρδιοπροστασία σε ασθενείς με καρδιακή ανεπάρκεια", "πανανθεκτικός S. aureus", "στοχευμένη θεραπεία για γλοιοβλάστωμα"), constraints (μέσα/εκτός ανθρώπινου σώματος, τοξικότητα, κόστος, διαθεσιμότητα, κ.λπ.)
+
+Output: 2–5 υποθετικές κατευθύνσεις με μηχανιστικούς άξονες, θεραπευτικές στρατηγικές, και καινοτόμες προσεγγίσεις από cross-domain transfer.
+
+3.2 Concept Learner (term graph)
+
+Διασπά τους όρους σχετικά με το domain (π.χ. insulin resistance, SGLT2, GLP-1, cardiovascular events, tumor microenvironment, BBB penetration, antibiotic resistance, biofilm, quorum sensing...), φτιάχνει Concept Map με ορισμούς, molecular targets, pathways, γνωστές θεραπευτικές προσεγγίσεις και περιορισμούς.
+
+Παράγει curated glossary + prerequisite tree για downstream agents, προσαρμοσμένο στο συγκεκριμένο medical domain.
+
+3.3 Evidence Miners
+
+Για κάθε κόμβο της υπόθεσης, εκτελεί στοχευμένο retrieval (papers, trials, bioactivity κ.ά.) με hybrid search (BM25 + vectors).
+
+Επιστρέφει Evidence Pack: key findings, quality score, links, αποσπάσματα με citations, δομημένα bioactivity tables.
+
+3.4 Cross-Domain Mapper
+
+Αναζητά αναλογίες από άλλα medical domains και μη-ιατρικά πεδία (υλικά/νανο-coatings/τροφική τεχνολογία/οδοντιατρική/βιομηχανική απολύμανση/φυσικοχημεία/βιομηχανική μηχανική).
+
+Προτείνει «μεταφράσιμες» ιδέες (π.χ. μηχανισμός από ογκολογία που μπορεί να εφαρμοστεί σε νευροεκφυλιστικά νοσήματα, food-grade ένζυμο για τοπική θεραπεία, cardiovascular pathway για νεφροπροστασία, κλπ).
+
+3.5 Synthesizer
+
+Συρράπτει το hypothesis document (Mechanism of Action, molecular targets, pathway impact, delivery options, expected clinical outcomes, resistance/relapse considerations), με Provenance (ποια sources στήριξαν τι).
+
+Δημιουργεί Assumptions & Unknowns + πλάνο επαλήθευσης (in-silico tests που θα τρέξει το Simulation Agent), προσαρμοσμένο στο συγκεκριμένο medical domain.
+
+3.6 Simulation Agent (in-silico scoring)
+
+Επιλογές για MVP (προσαρμοσμένες ανά medical domain):
+
+QSAR-like surrogate: εκτίμηση activity/toxicity από known descriptors (για μόρια όταν υπάρχουν).
+
+Rule-based PK/PD toy models: απλές καμπύλες για συγκέντρωση/επίδραση vs therapeutic targets (σε proxy).
+
+Network perturbation: επιρροή σε pathways/targets (graph propagation scores, pathway enrichment analysis).
+
+Domain-specific scores: 
+  - Αντιμικροβιακά: biofilm disruption, resistance escape likelihood
+  - Ογκολογία: tumor selectivity, metastatic potential impact
+  - Καρδιολογία: cardiovascular risk/benefit ratio
+  - Διαβήτης: glycemic control potential, metabolic pathway impact
+  - Νευρολογία: BBB penetration, neuroprotection score
+
+Output: Feasibility Scorecard (activity plausibility, delivery feasibility, safety flags, clinical translatability score).
+
+3.7 Ethical/Clinical Validator
+
+Checklist (προσαρμοσμένο ανά medical domain):
+
+Ασφάλεια/τοξικότητα/τοπική vs συστηματική χρήση
+
+Domain-specific considerations:
+  - Αντιμικροβιακά: stewardship, resistance promotion risk
+  - Ογκολογία: therapeutic window, off-target toxicity
+  - Χρόνια νοσήματα: long-term safety, adherence factors
+  - Παιδιατρική: developmental safety, age-appropriate dosing
+
+Κλινική μεταφρασιμότητα (ανάδειξη απαραίτητων preclinical/clinical βημάτων)
+
+Ρυθμιστικά/δεοντολογικά (GCP, ICH guidelines, εμπλεκόμενοι πληθυσμοί, vulnerable populations)
+
+Ισότητα πρόσβασης και κόστος-αποτελεσματικότητα
+
+Verdict: Green/Amber/Red με αιτιολόγηση + προτεινόμενες ασφαλιστικές δικλείδες.
+
+4) Ροή Εργασίας (pipeline)
+
+POST /hypotheses με στόχο/constraints.
+
+Orchestrator → Visioner → υποψήφιες κατευθύνσεις.
+
+Concept Learner → concept map & glossary.
+
+Evidence Miners → evidence packs ανά concept/μηχανισμό.
+
+Cross-Domain Mapper → candidate transfers από άλλα domains.
+
+Synthesizer → draft hypothesis (v0) + assumptions.
+
+Simulation Agent → Feasibility Scorecard (v1).
+
+Ethical Validator → Green/Amber/Red + remediation.
+
+GET /hypotheses/{id} → πλήρες report + downloadable evidence bundle.
+
+Όλα τα artifacts κρατούν provenance graph (ποιος agent, ποια sources, timestamps, parameters).
+
+5) API Σχεδίαση (REST — ενδεικτικά)
+5.1 Create Hypothesis
+POST /v1/hypotheses
+{
+  "goal": "Νέα θεραπευτική προσέγγιση για [medical condition]",
+  "domain": "cardiology|oncology|neurology|diabetes|infectious_diseases|genetics|immunology|etc",
+  "constraints": {
+    "route": ["oral","topical","localized","systemic","intravenous"],
+    "avoid": ["specific toxicities or contraindications"],
+    "focus": ["mechanism types, delivery methods, patient populations"]
+  },
+  "cross_domains": ["clinical","materials","foodtech","engineering","nanomedicine","bioinformatics"],
+  "max_runtime_minutes": 8
+}
+
+Παραδείγματα:
+- "Βελτίωση ινσουλινικής ευαισθησίας στον διαβήτη τύπου 2" (domain: diabetes)
+- "Καρδιοπροστασία σε ασθενείς με καρδιακή ανεπάρκεια" (domain: cardiology)
+- "Στοχευμένη θεραπεία για γλοιοβλάστωμα" (domain: oncology)
+- "Παρέμβαση για pan-resistant Staphylococcus aureus" (domain: infectious_diseases)
+
+
+Response
+
+202 Accepted
+{ "id":"hyp_9X2...", "status":"running" }
+
+5.2 Get Status/Result
+GET /v1/hypotheses/{id}
+
+
+Response (completed)
+
+200 OK
+{
+  "id":"hyp_9X2...",
+  "status":"completed",
+  "domain":"diabetes|cardiology|oncology|infectious_diseases|etc",
+  "summary":{
+    "title":"[Domain-specific innovative hypothesis title]",
+    "feasibility":"amber",
+    "ethics_verdict":"green_with_conditions",
+    "key_scores":{
+      "therapeutic_potential":0.78,
+      "delivery_feasibility":0.65,
+      "safety_profile":0.72,
+      "clinical_translatability":0.68
+    }
+  },
+  "concept_map": {...},
+  "hypothesis_document": {...},         // MOA, targets, pathway impact, clinical rationale
+  "evidence_packs":[{...},{...}],       // citations + quality scores
+  "cross_domain_transfers":[...],       // innovative ideas from other domains
+  "simulation_scorecard": {...},        // domain-specific feasibility metrics
+  "ethics_report": {...},
+  "provenance": {...},                  // agents→sources→hashes
+  "artifacts": {
+    "pdf_report_url":"s3://.../hyp_9X2/report.pdf",
+    "bundle_url":"s3://.../hyp_9X2/evidence_bundle.zip"
+  }
+}
+
+5.3 Watch/Streaming (προαιρετικά)
+
+GET /v1/hypotheses/{id}/events (SSE/WebSocket) για real-time updates.
+
+5.4 Search/Index
+
+GET /v1/search?query=lysins+biofilm+VRSA&type=paper|trial|compound|patent
+
+GET /v1/entities/{cui-or-mesh} για concept details.
+
+5.5 Admin/Observability
+
+GET /v1/health, GET /v1/metrics, GET /v1/traces/{id}.
+
+6) Δεδομένα & Σχήματα
+6.1 Unified Doc Schema (απλοποιημένο)
+{
+  "id": "doc_x",
+  "source": "pubmed|clinicaltrials|pubchem|chembl|uniprot|patent|zenodo|github",
+  "title": "string",
+  "abstract": "string",
+  "year": 2024,
+  "authors": ["..."],
+  "identifiers": {"pmid":"", "doi":"", "registry_id":""},
+  "mesh": ["D012...", "D00..."],
+  "entities": [{"type":"PATHOGEN","id":"...","label":"S. aureus"}, {"type":"TARGET","id":"..."}],
+  "citations": ["doi:..."],
+  "embeddings": {"text":[...]},
+  "quality_score": 0.0,
+  "retrieval_metadata": {"query":"...", "ts":"..."}
+}
+
+6.2 Hypothesis Schema (core)
+{
+  "id":"hyp_...",
+  "goal":"string",
+  "constraints": {...},
+  "directions":[{"label":"...", "rationale":"..."}],
+  "concept_map": {"nodes":[...], "edges":[...]},
+  "evidence_packs":[{"for":"biofilm","items":[...] }],
+  "cross_domain":[{"origin":"foodtech","transfer":"..." }],
+  "simulation":{"methods":[...], "scores":{...}},
+  "ethics":{"verdict":"green|amber|red","notes":[...]},
+  "provenance":{"agents":[...], "sources":[...]}
+}
+
+7) In-silico Simulation (MVP πρακτικά)
+
+Heuristic Scorers (άμεσα υλοποιήσιμα):
+
+Biofilm Disruption Heuristic: βάρη για στόχευση EPS, penetration, synergy με lysins/AMPs.
+
+Resistance Bypass Likelihood: ορθογωνιότητα μηχανισμών έναντι συνήθων αντοχών (efflux, target mod).
+
+Delivery Feasibility: topical vs systemic, stability, known vehicles (hydrogels, nanoparticles).
+
+Safety/Toxicity Proxy: flags από γνωστά toxicity alerts (π.χ. cationic peptide burden), human cell line notes από public datasets όπου επιτρέπεται.
+
+Surrogate QSAR (optional v2):
+
+Αν υπάρχει SMILES/descriptor set από PubChem/ChEMBL για συγγενείς ενώσεις → light GBM για activity/tox proxy.
+
+Στόχος: σχετική κατάταξη ιδεών, όχι κλινική πρόβλεψη. Τα reports το δηλώνουν ρητά.
+
+8) Ethical/Clinical Validation (rules)
+
+Δεν προτείνουμε εφαρμογές με υψηλή πιθανότητα τοξικότητας χωρίς τοπικούς περιορισμούς/έλεγχο δόσης.
+
+Πρώτα anti-virulence/anti-biofilm και localized προσεγγίσεις όπου είναι εφικτό.
+
+Υποχρεωτική σήμανση “research-opening hypothesis” + προτεινόμενα preclinical βήματα.
+
+Bias audit: αναφορά ποιότητας/παλαιότητας βιβλιογραφίας, ισορροπία υπέρ/κατά evidence.
+
+9) Ενσωμάτωση με MedResearch AI
+
+Webhook/Callback: στο completion, στέλνουμε hypothesis_summary στο MedResearch για απόδοση μέσα στο Research Studio ή στο Publication Hub.
+
+Deep-link: medresearch://open?h=hyp_... με auto-import του evidence bundle.
+
+RBAC: scopes amr.hypotheses.read/write, evidence.read, artifacts.read.
+
+10) Tech Stack (προτάσεις)
+
+API/Gateway: FastAPI (REST) + Graphene/FastAPI-GraphQL (GraphQL)
+
+Orchestration: Temporal.io ή Celery + Redis
+
+NLP/Embedding: sentence-transformers, optional reranking
+
+Entity Linking: scispacy + UMLS/MeSH mappers
+
+Datastores: MongoDB, Neo4j, Qdrant, MinIO, Redis
+
+Containers: Docker + Kubernetes (Jobs για long-running tasks)
+
+Sec/Compliance: JWT/OIDC, audit logs, GDPR-friendly (δεν αγγίζουμε PII)
+
+11) MVP οδικός χάρτης (4–6 εβδομάδες)
+
+Εβδομ. 1–2
+
+Skeleton services (API, Orchestrator, Agents stubs)
+
+PubMed/ClinicalTrials/PubChem connectors + normalizers
+
+Vector/Graph init, basic retrieval
+
+Εβδομ. 3–4
+
+Visioner/Concept Learner/Cross-Domain v1
+
+Synthesizer + Evidence Packs
+
+Simulation Heuristics v1
+
+Ethical Rules v1
+
+OpenAPI + basic UI (Swagger) + artifacts export
+
+Εβδομ. 5–6
+
+Hardening (caching, retries, tracing)
+
+Rate limiting & quotas
+
+Webhooks προς MedResearch + deep-link import
+
+Benchmark set (golden queries) & regression tests
+
+12) Παράδειγμα end-to-end (AMR/MRSA)
+
+POST /hypotheses με στόχο “MRSA biofilm disruption, localized use”.
+
+Visioner → 3 κατευθύνσεις (π.χ. enzyme cocktail + lysin gel, quorum sensing inhibitor + AMP micro-dosing, nano-coating catheter approach).
+
+Concept Learner → terms: biofilm/EPS/lysins/AMPs/quorum-sensing.
+
+Evidence Miners → papers/trials/chem assays από PubMed/ClinicalTrials/PubChem/ChEMBL.
+
+Cross-Domain → enzymes από foodtech κατά biofilms, dental plaque strategies.
+
+Synthesizer → hypothesis doc + assumptions.
+
+Simulation → biofilm disruption 0.72, delivery 0.65, toxicity risk 0.28.
+
+Ethical Validator → Green with conditions (τοπική χρήση, escalation plan, preclinical steps).
+
+Webhook → MedResearch: summary + artifacts.
+
+13) Παραδοτέα
+
+Τρέχον OpenAPI (yaml) + GraphQL SDL
+
+Docker Compose για τοπική εκτέλεση
+
+Seed scripts (demo queries + canned evidence)
+
+Evaluator με 10 golden topics (T1D infection risk, MRSA, A. baumannii κ.λπ.) για sanity checks
+
+Developer Docs: setup, keys, rate limits, examples
